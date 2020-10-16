@@ -41,6 +41,18 @@ func LocalAccounts() []string {
 	return accounts
 }
 
+// LocalAccountsFromPath returns a slice of local account alias names
+func LocalAccountsFromPath(pathDir string) []string {
+	files, _ := ioutil.ReadDir(pathDir)
+	accounts := []string{}
+	for _, node := range files {
+		//if node.IsDir() {
+		accounts = append(accounts, path.Base(node.Name()))
+		//}
+	}
+	return accounts
+}
+
 var (
 	describe = fmt.Sprintf("%-24s\t\t%23s\n", "NAME", "ADDRESS")
 	// ErrNoUnlockBadPassphrase for bad password
@@ -94,10 +106,30 @@ func FromAddress(addr string) *keystore.KeyStore {
 	return nil
 }
 
+// FromAddress will return nil if the Base58 string is not found in the imported accounts
+func FromAddressFromDir(addr, pathDir string) *keystore.KeyStore {
+	for _, name := range LocalAccountsFromPath(pathDir) {
+		ks := FromAccountNameFromDir(name, pathDir)
+		allAccounts := ks.Accounts()
+		for _, account := range allAccounts {
+			if addr == account.Address.String() {
+				return ks
+			}
+		}
+	}
+	return nil
+}
+
 // FromAccountName get account from name
 func FromAccountName(name string) *keystore.KeyStore {
 	uDir, _ := homedir.Dir()
 	p := path.Join(uDir, c.DefaultConfigDirName, c.DefaultConfigAccountAliasesDirName, name)
+	return keystore.ForPath(p)
+}
+
+// FromAccountName get account from name
+func FromAccountNameFromDir(name, pathDir string) *keystore.KeyStore {
+	p := path.Join(pathDir, name)
 	return keystore.ForPath(p)
 }
 
@@ -124,6 +156,26 @@ func UnlockedKeystore(from, passphrase string) (*keystore.KeyStore, *keystore.Ac
 		return nil, nil, fmt.Errorf("address not valid: %s", from)
 	}
 	ks := FromAddress(from)
+	if ks == nil {
+		return nil, nil, fmt.Errorf("could not open local keystore for %s", from)
+	}
+	account, lookupErr := ks.Find(keystore.Account{Address: sender})
+	if lookupErr != nil {
+		return nil, nil, fmt.Errorf("could not find %s in keystore", from)
+	}
+	if unlockError := ks.Unlock(account, passphrase); unlockError != nil {
+		return nil, nil, errors.Wrap(ErrNoUnlockBadPassphrase, unlockError.Error())
+	}
+	return ks, &account, nil
+}
+
+// UnlockedKeystore return keystore unlocked
+func UnlockedKeystoreFromDir(from, passphrase, pathDir string) (*keystore.KeyStore, *keystore.Account, error) {
+	sender, err := address.Base58ToAddress(from)
+	if err != nil {
+		return nil, nil, fmt.Errorf("address not valid: %s", from)
+	}
+	ks := FromAddressFromDir(from, pathDir)
 	if ks == nil {
 		return nil, nil, fmt.Errorf("could not open local keystore for %s", from)
 	}
