@@ -103,6 +103,38 @@ func (g *GrpcClient) TriggerContract(from, contractAddress, method, jsonString s
 	return g.triggerContract(ct, feeLimit)
 }
 
+// TriggerContract and return tx result
+func (g *GrpcClient) TriggerContractWithParamBytes(from, contractAddress string, dataBytes []byte ,
+	feeLimit, tAmount int64, tTokenID string, tTokenAmount int64) (*api.TransactionExtention, error) {
+	fromDesc, err := address.Base58ToAddress(from)
+	if err != nil {
+		return nil, err
+	}
+
+	contractDesc, err := address.Base58ToAddress(contractAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	ct := &core.TriggerSmartContract{
+		OwnerAddress:    fromDesc.Bytes(),
+		ContractAddress: contractDesc.Bytes(),
+		Data:            dataBytes,
+	}
+	if tAmount > 0 {
+		ct.CallValue = tAmount
+	}
+	if len(tTokenID) > 0 && tTokenAmount > 0 {
+		ct.CallTokenValue = tTokenAmount
+		ct.TokenId, err = strconv.ParseInt(tTokenID, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return g.triggerContract(ct, feeLimit)
+}
+
 // triggerContract and return tx result
 func (g *GrpcClient) triggerContract(ct *core.TriggerSmartContract, feeLimit int64) (*api.TransactionExtention, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), g.grpcTimeout)
