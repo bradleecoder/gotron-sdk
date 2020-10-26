@@ -17,10 +17,10 @@ type GrpcClient struct {
 }
 
 // NewGrpcClient create grpc controller
-func NewGrpcClient(address string) *GrpcClient {
+func NewGrpcClient(address string,timeout time.Duration) *GrpcClient {
 	client := &GrpcClient{
 		Address:     address,
-		grpcTimeout: 5 * time.Second,
+		grpcTimeout: timeout,
 	}
 	return client
 }
