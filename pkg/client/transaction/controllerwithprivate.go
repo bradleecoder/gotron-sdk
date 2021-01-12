@@ -50,8 +50,13 @@ func (C *ControllerWithPrivateKey) signTxForSending() {
 	//signedTransaction, err :=
 	//	C.sender.ks.SignTx(*C.sender.account, C.tx)
 	//sign and broadcast
+	rawData, err := proto.Marshal(C.tx.GetRawData())
+	if err != nil {
+		C.executionError = err
+		return
+	}
 	h256h := sha256.New()
-	h256h.Write(C.tx.RawData.Data)
+	h256h.Write(rawData)
 	hash := h256h.Sum(nil)
 	pri, err := crypto.HexToECDSA(C.senderPrivateKey)
 	if err != nil {
@@ -64,11 +69,6 @@ func (C *ControllerWithPrivateKey) signTxForSending() {
 		return
 	}
 	C.tx.Signature = append(C.tx.Signature, signature)
-
-	if err != nil {
-		C.executionError = err
-	}
-	//C.tx = signedTransaction
 }
 
 // TransactionHash extract hash from TX
